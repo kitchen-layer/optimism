@@ -120,7 +120,8 @@ contract Deploy is Deployer {
             ETHLockbox: artifacts.getAddress("ETHLockboxProxy"),
             SystemConfig: artifacts.getAddress("SystemConfigProxy"),
             L1ERC721Bridge: artifacts.getAddress("L1ERC721BridgeProxy"),
-            ProtocolVersions: artifacts.getAddress("ProtocolVersionsProxy")
+            ProtocolVersions: artifacts.getAddress("ProtocolVersionsProxy"),
+            SuperchainConfig: artifacts.getAddress("SuperchainConfigProxy")
         });
     }
 
@@ -130,31 +131,73 @@ contract Deploy is Deployer {
 
     /// @notice Deploy all of the L1 contracts necessary for a full Superchain with a single Op Chain.
     function run() public {
-        console.log("Deploying a fresh OP Stack without SuperchainConfig");
+        console.log("Deploying a fresh OP Stack including SuperchainConfig");
+        _run({ _needsSuperchain: true });
+    }
+
+    /// @notice Deploy a new OP Chain using an existing SuperchainConfig and ProtocolVersions
+    /// @param _superchainConfigProxy Address of the existing SuperchainConfig proxy
+    /// @param _protocolVersionsProxy Address of the existing ProtocolVersions proxy
+    function runWithSuperchain(address payable _superchainConfigProxy, address payable _protocolVersionsProxy) public {
+        require(_superchainConfigProxy != address(0), "Deploy: must specify address for superchain config proxy");
+        require(_protocolVersionsProxy != address(0), "Deploy: must specify address for protocol versions proxy");
+
+        vm.chainId(cfg.l1ChainID());
+
+        console.log("Deploying a fresh OP Stack with existing SuperchainConfig and ProtocolVersions");
+
+        IProxy scProxy = IProxy(_superchainConfigProxy);
+        artifacts.save("SuperchainConfigImpl", scProxy.implementation());
+        artifacts.save("SuperchainConfigProxy", _superchainConfigProxy);
+
+        IProxy pvProxy = IProxy(_protocolVersionsProxy);
+        artifacts.save("ProtocolVersionsImpl", pvProxy.implementation());
+        artifacts.save("ProtocolVersionsProxy", _protocolVersionsProxy);
+
         _run({ _needsSuperchain: false });
     }
-    /// @notice Used for L1 alloc generation.
 
+    /// @notice Used for L1 alloc generation.
     function runWithStateDump() public {
         vm.chainId(cfg.l1ChainID());
-        _run({ _needsSuperchain: false });
+        _run({ _needsSuperchain: true });
         vm.dumpState(Config.stateDumpPath(""));
     }
 
     /// @notice Deploy all L1 contracts and write the state diff to a file.
     ///         Used to generate kontrol tests.
     function runWithStateDiff() public stateDiff {
-        _run({ _needsSuperchain: false });
+        _run({ _needsSuperchain: true });
     }
 
     /// @notice Internal function containing the deploy logic.
     function _run(bool _needsSuperchain) internal virtual {
         console.log("start of L1 Deploy!");
 
+        // Set up the Superchain if needed.
+        if (_needsSuperchain) {
+            deploySuperchain();
+        }
+
         deployImplementations({ _isInterop: cfg.useInterop() });
 
         // Deploy Current OPChain Contracts
         deployOpChain();
+
+        // Set the respected game type according to the deploy config
+        vm.startPrank(ISuperchainConfig(artifacts.mustGetAddress("SuperchainConfigProxy")).guardian());
+        IAnchorStateRegistry(artifacts.mustGetAddress("AnchorStateRegistryProxy")).setRespectedGameType(
+            GameType.wrap(uint32(cfg.respectedGameType()))
+        );
+        vm.stopPrank();
+
+        if (cfg.useAltDA()) {
+            bytes32 typeHash = keccak256(bytes(cfg.daCommitmentType()));
+            bytes32 keccakHash = keccak256(bytes("KeccakCommitment"));
+            if (typeHash == keccakHash) {
+                deployOpAltDA();
+            }
+        }
 
         transferProxyAdminOwnership();
         console.log("set up op chain!");
@@ -163,6 +206,46 @@ contract Deploy is Deployer {
     ////////////////////////////////////////////////////////////////
     //           High Level Deployment Functions                  //
     ////////////////////////////////////////////////////////////////
+
+    /// @notice Deploy a full system with a new SuperchainConfig
+    ///         The Superchain system has 2 singleton contracts which lie outside of an OP Chain:
+    ///         1. The SuperchainConfig contract
+    ///         2. The ProtocolVersions contract
+    function deploySuperchain() public {
+        console.log("Setting up Superchain");
+        DeploySuperchain ds = new DeploySuperchain();
+        (DeploySuperchainInput dsi, DeploySuperchainOutput dso) = ds.etchIOContracts();
+
+        // Set the input values on the input contract.
+        // TODO: when DeployAuthSystem is done, finalSystemOwner should be replaced with the Foundation Upgrades Safe
+        dsi.set(dsi.protocolVersionsOwner.selector, cfg.finalSystemOwner());
+        dsi.set(dsi.superchainProxyAdminOwner.selector, cfg.finalSystemOwner());
+        dsi.set(dsi.guardian.selector, cfg.superchainConfigGuardian());
+        dsi.set(dsi.paused.selector, false);
+        dsi.set(dsi.requiredProtocolVersion.selector, ProtocolVersion.wrap(cfg.requiredProtocolVersion()));
+        dsi.set(dsi.recommendedProtocolVersion.selector, ProtocolVersion.wrap(cfg.recommendedProtocolVersion()));
+
+        // Run the deployment script.
+        ds.run(dsi, dso);
+        artifacts.save("SuperchainProxyAdmin", address(dso.superchainProxyAdmin()));
+        artifacts.save("SuperchainConfigProxy", address(dso.superchainConfigProxy()));
+        artifacts.save("SuperchainConfigImpl", address(dso.superchainConfigImpl()));
+        artifacts.save("ProtocolVersionsProxy", address(dso.protocolVersionsProxy()));
+        artifacts.save("ProtocolVersionsImpl", address(dso.protocolVersionsImpl()));
+
+        // First run assertions for the ProtocolVersions and SuperchainConfig proxy contracts.
+        Types.ContractSet memory contracts = _proxies();
+        ChainAssertions.checkProtocolVersions({ _contracts: contracts, _cfg: cfg, _isProxy: true });
+        ChainAssertions.checkSuperchainConfig({ _contracts: contracts, _cfg: cfg, _isProxy: true, _isPaused: false });
+
+        // Then replace the ProtocolVersions proxy with the implementation address and run assertions on it.
+        contracts.ProtocolVersions = artifacts.mustGetAddress("ProtocolVersionsImpl");
+        ChainAssertions.checkProtocolVersions({ _contracts: contracts, _cfg: cfg, _isProxy: false });
+
+        // Finally replace the SuperchainConfig proxy with the implementation address and run assertions on it.
+        contracts.SuperchainConfig = artifacts.mustGetAddress("SuperchainConfigImpl");
+        ChainAssertions.checkSuperchainConfig({ _contracts: contracts, _cfg: cfg, _isPaused: false, _isProxy: false });
+    }
 
     /// @notice Deploy all of the implementations
     /// @param _isInterop Whether to use interop
@@ -182,6 +265,16 @@ contract Deploy is Deployer {
         dii.set(dii.mipsVersion.selector, Config.useMultithreadedCannon() ? 6 : 1);
         string memory release = "dev";
         dii.set(dii.l1ContractsRelease.selector, release);
+        dii.set(dii.protocolVersionsProxy.selector, artifacts.mustGetAddress("ProtocolVersionsProxy"));
+
+        ISuperchainConfig superchainConfig = ISuperchainConfig(artifacts.mustGetAddress("SuperchainConfigProxy"));
+        dii.set(dii.superchainConfigProxy.selector, address(superchainConfig));
+
+        IProxyAdmin superchainProxyAdmin = IProxyAdmin(EIP1967Helper.getAdmin(address(superchainConfig)));
+        dii.set(dii.superchainProxyAdmin.selector, address(superchainProxyAdmin));
+
+        // I think this was a bug
+        dii.set(dii.upgradeController.selector, superchainProxyAdmin.owner());
 
         di.run(dii, dio);
 
@@ -205,7 +298,8 @@ contract Deploy is Deployer {
             ETHLockbox: address(dio.ethLockboxImpl()),
             SystemConfig: address(dio.systemConfigImpl()),
             L1ERC721Bridge: address(dio.l1ERC721BridgeImpl()),
-            ProtocolVersions: address(dio.protocolVersionsImpl())
+            ProtocolVersions: address(dio.protocolVersionsImpl()),
+            SuperchainConfig: address(dio.superchainConfigImpl())
         });
 
         ChainAssertions.checkL1CrossDomainMessenger({ _contracts: impls, _vm: vm, _isProxy: false });
@@ -228,7 +322,8 @@ contract Deploy is Deployer {
             _impls: impls,
             _proxies: _proxies(),
             _opcm: IOPContractsManager(address(dio.opcm())),
-            _mips: IMIPS(address(dio.mipsSingleton()))
+            _mips: IMIPS(address(dio.mipsSingleton())),
+            _superchainProxyAdmin: superchainProxyAdmin
         });
         ChainAssertions.checkSystemConfig({ _contracts: impls, _cfg: cfg, _isProxy: false });
     }

@@ -13,6 +13,7 @@ import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IDisputeGameFactory } from "interfaces/dispute/IDisputeGameFactory.sol";
 import { IFaultDisputeGame } from "interfaces/dispute/IFaultDisputeGame.sol";
 import { IPermissionedDisputeGame } from "interfaces/dispute/IPermissionedDisputeGame.sol";
+import { ISuperchainConfig } from "interfaces/L1/ISuperchainConfig.sol";
 import { IProtocolVersions } from "interfaces/L1/IProtocolVersions.sol";
 import { IOptimismPortal2 } from "interfaces/L1/IOptimismPortal2.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
@@ -40,11 +41,18 @@ interface IOPContractsManagerGameTypeAdder {
 
     function __constructor__(IOPContractsManagerContractsContainer _contractsContainer) external;
 
-    function addGameType(IOPContractsManager.AddGameInput[] memory _gameConfigs)
+    function addGameType(
+        IOPContractsManager.AddGameInput[] memory _gameConfigs,
+        address _superchainConfig
+    )
         external
         returns (IOPContractsManager.AddGameOutput[] memory);
 
-    function updatePrestate(IOPContractsManager.OpChainConfig[] memory _prestateUpdateInputs) external;
+    function updatePrestate(
+        IOPContractsManager.OpChainConfig[] memory _prestateUpdateInputs,
+        address _superchainConfig
+    )
+        external;
 
     function contractsContainer() external view returns (IOPContractsManagerContractsContainer);
 }
@@ -56,6 +64,7 @@ interface IOPContractsManagerDeployer {
 
     function deploy(
         IOPContractsManager.DeployInput memory _input,
+        address _superchainConfig,
         address _deployer
     )
         external
@@ -177,6 +186,7 @@ interface IOPContractsManager {
 
     /// @notice The latest implementation contracts for the OP Stack.
     struct Implementations {
+        address superchainConfigImpl;
         address protocolVersionsImpl;
         address l1ERC721BridgeImpl;
         address optimismPortalImpl;
@@ -223,8 +233,14 @@ interface IOPContractsManager {
 
     function version() external pure returns (string memory);
 
+    /// @notice Address of the SuperchainConfig contract shared by all chains.
+    function superchainConfig() external view returns (ISuperchainConfig);
+
     /// @notice Address of the ProtocolVersions contract shared by all chains.
     function protocolVersions() external view returns (IProtocolVersions);
+
+    /// @notice Address of the ProxyAdmin contract shared by all chains.
+    function superchainProxyAdmin() external view returns (IProxyAdmin);
 
     /// @notice L1 smart contracts release deployed by this version of OPCM. This is used in opcm to signal which
     /// version of the L1 smart contracts is deployed. It takes the format of `op-contracts/vX.Y.Z`.
@@ -277,6 +293,9 @@ interface IOPContractsManager {
         IOPContractsManagerDeployer _opcmDeployer,
         IOPContractsManagerUpgrader _opcmUpgrader,
         IOPContractsManagerInteropMigrator _opcmInteropMigrator,
+        ISuperchainConfig _superchainConfig,
+        IProtocolVersions _protocolVersions,
+        IProxyAdmin _superchainProxyAdmin,
         string memory _l1ContractsRelease,
         address _upgradeController
     )
