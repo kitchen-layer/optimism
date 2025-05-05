@@ -1,0 +1,138 @@
+{
+  "deployments": [
+    {
+      "contract": "AddressManager",
+      "address": "0x131a5D3d460f615b83c0912C3961Da1299034584"
+    },
+    {
+      "contract": "ProxyAdmin",
+      "address": "0x807F42Ef83D634164d9bAB805431B542DE0De951"
+    },
+    {
+      "contract": "OptimismPortalProxy",
+      "proxy_type": "ERC1967",
+      "address": "0x77E034FC450B216B2F0a55aF8986Cb0Cd24bAdC8"
+    },
+    {
+      "contract": "L2OutputOracleProxy",
+      "proxy_type": "ERC1967",
+      "address": "0xD421B15De3aD54176510919Be7b46d36ded16dED"
+    },
+    {
+      "contract": "SystemConfigProxy",
+      "proxy_type": "ERC1967",
+      "address": "0x623999404f6843A035e32468d5025D65907ddac5"
+    },
+    {
+      "contract": "L1StandardBridgeProxy",
+      "address": "0x1dC56FDFc583abb6fF887DC77dE7bbBd81d13982"
+    },
+    {
+      "contract": "L1CrossDomainMessengerProxy",
+      "address": "0xFA9De411ab0139fFa0Bb10aD52C8779f7Ca9fc89"
+    },
+    {
+      "contract": "OptimismMintableERC20FactoryProxy",
+      "proxy_type": "ERC1967",
+      "address": "0x73f17bEEC1045F2bfc12ceBEDeF9083b0f06Fc2d"
+    },
+    {
+      "contract": "L1ERC721BridgeProxy",
+      "proxy_type": "ERC1967",
+      "address": "0xf8D645380595ba4449f836CE110B6Ac99Cb826c4"
+    },
+    {
+      "contract": "DisputeGameFactoryProxy",
+      "proxy_type": "ERC1967",
+      "address": "0x8a67354097d7D70d727C36D6Cf4aaA3A9C9d42F1"
+    },
+    {
+      "contract": "ProtocolVersionsProxy",
+      "proxy_type": "ERC1967",
+      "address": "0x1a6E2dD919Da91A57c7e3efC09C01A0e2D1A15b3"
+    },
+    {
+      "contract": "OptimismPortal",
+      "address": "0x7FA692a07f513FabFBf3C7Ae20fd4ecCa383bA6E"
+    },
+    {
+      "contract": "L1CrossDomainMessenger",
+      "address": "0x5767337E6d9A99BF58d3ce051aA6D31fEC40a957"
+    },
+    {
+      "contract": "L2OutputOracle",
+      "address": "0x670077469436c263263c4eE4FD2C34De49e8a43e"
+    },
+    {
+      "contract": "OptimismMintableERC20Factory",
+      "address": "0xd9f3A44137077D5E1eFC2a2eBE84ea5C472e04A5"
+    },
+    {
+      "contract": "SystemConfig",
+      "address": "0xe4F3521a73C08ACf04038eCE02dDd7070FB94f02"
+    },
+    {
+      "contract": "L1StandardBridge",
+      "address": "0x420261E11fcd391Dd588364c180F87A90f4D1c64"
+    },
+    {
+      "contract": "L1ERC721Bridge",
+      "address": "0xadE896E8FA7f73127C905f387ceF1c73789946De"
+    },
+    {
+      "contract": "ProtocolVersions",
+      "address": "0xA12F4Febd920fdC49c90a4F595A809BAA44dEFd4"
+    },
+    {
+      "contract": "SystemOwnerSafe",
+      "address": "0xD5414a948B70EcBB8D05249ED52e038DBfA5Cf2B"
+    }
+  ],
+  "ownership_transfers": [
+    {
+      "from": "AddressManager",
+      "to": "ProxyAdmin",
+      "address": "0x807F42Ef83D634164d9bAB805431B542DE0De951"
+    },
+    {
+      "from": "ProxyAdmin",
+      "to": "SystemOwnerSafe",
+      "address": "0xD5414a948B70EcBB8D05249ED52e038DBfA5Cf2B"
+    }
+  ],
+  "upgrades": [
+    {
+      "contract": "SystemConfig",
+      "version": "1.11.0"
+    },
+    {
+      "contract": "L1StandardBridge",
+      "version": "1.5.0"
+    },
+    {
+      "contract": "L1ERC721Bridge",
+      "version": "1.5.0"
+    },
+    {
+      "contract": "OptimismMintableERC20Factory",
+      "version": "1.8.0"
+    },
+    {
+      "contract": "L1CrossDomainMessenger",
+      "version": "1.8.0"
+    },
+    {
+      "contract": "L2OutputOracle",
+      "version": "1.7.0"
+    },
+    {
+      "contract": "OptimismPortal",
+      "version": "1.11.0"
+    },
+    {
+      "contract": "ProtocolVersions",
+      "version": "1.0.0"
+    }
+  ]
+}
+
