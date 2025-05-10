@@ -99,7 +99,7 @@ contract Deploy is Deployer {
     ///         Using this helps to reduce config across networks as the implementation
     ///         addresses will be the same across networks when deployed with create2.
     function _implSalt() internal returns (bytes32) {
-        return keccak256(bytes(vm.envOr("IMPL_SALT", string("ethers cook"))));
+        return keccak256(bytes(vm.envOr("IMPL_SALT", string("kitchen coded 1"))));
     }
 
     /// @notice Returns the proxy addresses
