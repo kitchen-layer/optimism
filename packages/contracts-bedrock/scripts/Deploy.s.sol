@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "forge-std/Script.sol";
+import { Vm } from "forge-std/Vm.sol";
 
 import { console2 as console } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -46,6 +47,7 @@ import { AlphabetVM } from "test/mocks/AlphabetVM.sol";
 import "src/libraries/DisputeTypes.sol";
 import { ChainAssertions } from "scripts/ChainAssertions.sol";
 import { Types } from "scripts/Types.sol";
+import { SetPreinstalls } from "scripts/SetPreinstalls.s.sol";
 
 /// @title Deploy
 /// @notice Script used to deploy a bedrock system. The entire system is deployed within the `run` function.
@@ -99,7 +101,7 @@ contract Deploy is Deployer {
     ///         Using this helps to reduce config across networks as the implementation
     ///         addresses will be the same across networks when deployed with create2.
     function _implSalt() internal returns (bytes32) {
-        return keccak256(bytes(vm.envOr("IMPL_SALT", string("kitchen coded 1"))));
+        return keccak256(bytes(vm.envOr("IMPL_SALT", string("kitchen testnet 1"))));
     }
 
     /// @notice Returns the proxy addresses
@@ -227,6 +229,12 @@ contract Deploy is Deployer {
         initializeOptimismPortal();
         initializeProtocolVersions();
 
+        address PREINSTALL_SETTER_CONTRACT = 0xc90c3c00284FBc96aCecFAFf421785B8e60802f8;
+
+        vm.allowCheatcodes(PREINSTALL_SETTER_CONTRACT);
+
+        setPreinstalls();
+
         setAlphabetFaultGameImplementation();
         setCannonFaultGameImplementation();
 
@@ -269,6 +277,14 @@ contract Deploy is Deployer {
         deployPreimageOracle();
         deployMips();
         deployProtocolVersions();
+    }
+
+    /// @notice Sets all the preinstalls.
+    function setPreinstalls() internal {
+        address tmpSetPreinstalls = address(uint160(uint256(keccak256("SetPreinstalls"))));
+        vm.etch(tmpSetPreinstalls, vm.getDeployedCode("SetPreinstalls.s.sol:SetPreinstalls"));
+        SetPreinstalls(tmpSetPreinstalls).setPreinstalls();
+        vm.etch(tmpSetPreinstalls, "");
     }
 
     ////////////////////////////////////////////////////////////////
